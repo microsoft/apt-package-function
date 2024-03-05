@@ -23,11 +23,11 @@ If you wish to control the suffix used, you can pass the `-s` parameter:
 ```
 which will attempt to create a storage container named `debianrepo<suffix>`.
 
-By default all resources are created in the `uksouth` location - this can be
+By default all resources are created in the `eastus` location - this can be
 overridden by passing the `-l` parameter:
 
 ```bash
-./create_resources.sh -l eastus <resource_group_name>
+./create_resources.sh -l uksouth <resource_group_name>
 ```
 
 # Design
