@@ -209,8 +209,8 @@ def blob_trigger(newfile: func.InputStream):
 
 @app.function_name(name="eventGridTrigger")
 @app.event_grid_trigger(arg_name="event")
-def eventGridTrigger(event: func.EventGridEvent):
-    """Process an event grid trigger for a new blob in the container"""
+def event_grid_trigger(event: func.EventGridEvent):
+    """Process an event grid trigger for a new blob in the container."""
     log.info("Processing event %s", event.id)
     rm = RepoManager()
     rm.check_metadata()
