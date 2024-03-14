@@ -39,6 +39,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   }
   properties: {
     publicNetworkAccess: 'Enabled'
+    allowBlobPublicAccess: false
   }
 }
 
