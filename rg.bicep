@@ -13,6 +13,9 @@ param location string = resourceGroup().location
 @description('The name of the function app to use')
 param appName string = 'debfnapp${suffix}'
 
+@description('Using shared keys or managed identity')
+param use_shared_keys bool = true
+
 // Storage account names must be between 3 and 24 characters, and unique, so
 // generate a unique name.
 @description('The name of the storage account to use')
@@ -21,15 +24,23 @@ param storage_account_name string = 'debianrepo${suffix}'
 // Choose the package container name. This will be passed to the function app.
 var package_container_name = 'packages'
 
-// The version of Python to run with
-var python_version = '3.11'
+// Create a container for the Python code
+var python_container_name = 'python'
 
-// The name of the hosting plan, application insights, and function app
-var functionAppName = appName
-var hostingPlanName = appName
-var applicationInsightsName = appName
+// Create a UAMI for the deployment script to access the storage account
+resource uami 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: 'uami${suffix}'
+  location: location
+}
 
 // Create a storage account for both package storage and function app storage
+var common_storage_properties = {
+  publicNetworkAccess: 'Enabled'
+  allowBlobPublicAccess: false
+}
+var storage_properties = use_shared_keys ? common_storage_properties : union(common_storage_properties, {
+  allowSharedKeyAccess: false
+})
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   name: storage_account_name
   location: location
@@ -37,10 +48,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   sku: {
     name: 'Standard_LRS'
   }
-  properties: {
-    publicNetworkAccess: 'Enabled'
-    allowBlobPublicAccess: false
-  }
+  properties: storage_properties
 }
 
 // Create a container for the packages
@@ -54,12 +62,41 @@ resource packageContainer 'Microsoft.Storage/storageAccounts/blobServices/contai
   properties: {
   }
 }
+resource pythonContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = if (!use_shared_keys) {
+  parent: defBlobServices
+  name: python_container_name
+  properties: {
+  }
+}
+
+// Grant the UAMI Storage Blob Data Contributor on the storage account
+@description('This is the built-in Storage Blob Data Contributor role. See https://learn.microsoft.com/en-gb/azure/role-based-access-control/built-in-roles#storage-blob-data-contributor')
+resource storageBlobDataContributor 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+  scope: subscription()
+  name: 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
+}
+resource storageBlobDataContributorRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storageAccount.id, uami.id, storageBlobDataContributor.id)
+  scope: storageAccount
+  properties: {
+    principalId: uami.properties.principalId
+    roleDefinitionId: storageBlobDataContributor.id
+    principalType: 'ServicePrincipal'
+  }
+}
 
 // Create a default Packages file if it doesn't exist using a deployment script
 resource deploymentScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
   name: 'createPackagesFile${suffix}'
+  dependsOn: [storageBlobDataContributorRoleAssignment]
   location: location
   kind: 'AzureCLI'
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${uami.id}': {}
+    }
+  }
   properties: {
     azCliVersion: '2.28.0'
     retentionInterval: 'PT1H'
@@ -72,97 +109,33 @@ resource deploymentScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
         name: 'AZURE_BLOB_CONTAINER'
         value: packageContainer.name
       }
-      {
-        name: 'AZURE_STORAGE_KEY'
-        secureValue: storageAccount.listKeys().keys[0].value
-      }
     ]
     // This script preserves the Packages file if it exists and creates it
     // if it does not.
     scriptContent: '''
-az storage blob download -f Packages -c "${AZURE_BLOB_CONTAINER}" -n Packages || echo "No existing file"
+az storage blob download --auth-mode login -f Packages -c "${AZURE_BLOB_CONTAINER}" -n Packages || echo "No existing file"
 touch Packages
-az storage blob upload -f Packages -c "${AZURE_BLOB_CONTAINER}" -n Packages
+az storage blob upload --auth-mode login -f Packages -c "${AZURE_BLOB_CONTAINER}" -n Packages
     '''
     cleanupPreference: 'OnSuccess'
   }
 }
 
-// Create a hosting plan for the function app
-resource hostingPlan 'Microsoft.Web/serverfarms@2023-01-01' = {
-  name: hostingPlanName
-  location: location
-  sku: {
-    name: 'Y1'
-    tier: 'Dynamic'
-  }
-  properties: {
-    reserved: true
-  }
-}
-
-// Create application insights
-resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = {
-  name: applicationInsightsName
-  location: location
-  kind: 'web'
-  properties: {
-    Application_Type: 'web'
-    Request_Source: 'rest'
-  }
-}
-
-// Create the function app.
-resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
-  name: functionAppName
-  location: location
-  kind: 'functionapp,linux'
-  properties: {
-    serverFarmId: hostingPlan.id
-    siteConfig: {
-      linuxFxVersion: 'Python|${python_version}'
-      pythonVersion: python_version
-      appSettings: [
-        {
-          name: 'AzureWebJobsStorage'
-          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
-        }
-        {
-          name: 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING'
-          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
-        }
-        {
-          name: 'WEBSITE_CONTENTSHARE'
-          value: toLower(functionAppName)
-        }
-        {
-          name: 'FUNCTIONS_EXTENSION_VERSION'
-          value: '~4'
-        }
-        {
-          name: 'APPINSIGHTS_INSTRUMENTATIONKEY'
-          value: applicationInsights.properties.InstrumentationKey
-        }
-        {
-          name: 'FUNCTIONS_WORKER_RUNTIME'
-          value: 'python'
-        }
-        // Pass the blob container name to the function app - this is the
-        // container which is monitored for new packages.
-        {
-          name: 'BLOB_CONTAINER'
-          value: packageContainer.name
-        }
-      ]
-      ftpsState: 'FtpsOnly'
-      minTlsVersion: '1.2'
-    }
-    httpsOnly: true
+// Create the function app directly, if shared key support is enabled
+module funcapp 'rg_funcapp.bicep' = if (use_shared_keys) {
+  name: 'funcapp${suffix}'
+  params: {
+    location: location
+    storage_account_name: storageAccount.name
+    appName: appName
+    use_shared_keys: true
+    suffix: suffix
   }
 }
 
 // Create the apt sources string for using apt-transport-blob
 output apt_sources string = 'deb [trusted=yes] blob://${storageAccount.name}.blob.core.windows.net/${packageContainer.name} /'
-output function_app_name string = functionApp.name
+output function_app_name string = use_shared_keys ? funcapp.outputs.function_app_name : ''
 output storage_account string = storageAccount.name
 output package_container string = packageContainer.name
+output python_container string = use_shared_keys ? '' : pythonContainer.name
