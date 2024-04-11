@@ -6,6 +6,8 @@ an Azure Function App to keep it up to date. For use with
 
 # Getting Started
 
+## Basic usage
+
 To create a new Debian package repository with an Azure Function App, run
 
 ```bash
@@ -30,20 +32,38 @@ overridden by passing the `-l` parameter:
 ./create_resources.sh -l uksouth <resource_group_name>
 ```
 
+## No shared-key access / Managed Identities
+
+By default, the storage container that is created has shared-key access enabled.
+You can instead create a deployment that uses Managed Identities, but this
+requires Docker (as the function application and its dependencies must be
+compiled and packed appropriately).
+
+To create a new Debian package repository which uses Managed Identities, run
+
+```bash
+./create_resources_nosharedkey.sh [-s <suffix>] [-l <location>] <resource_group_name>
+```
+
+This creates an additional blob container (`python`) in the storage account to
+hold the compiled function application zip file; the function application is
+run directly from that zip file.
+
 # Design
 
 The function app works as follows:
 
 - It is triggered whenever a `.deb` file is uploaded to the monitored blob
   storage container
-    - It can be triggered by both blob storage triggers and by Event Grid triggers
+    - It is triggered by an Event Grid trigger.
 - It iterates over all `.deb` files and looks for a matching `.package` file.
 - If that file does not exist, it is created
     - The `.deb` file is downloaded and the control information is extracted
     - The hash values for the file are calculated (MD5sum, SHA1, SHA256)
     - All of this information is added to the `.package` file
 - All `.package` files are iterated over, downloaded, and combined into a
-  single `Package` file, which is then uploaded.
+  single `Package` file, which is then uploaded. A `Packages.xz` file is also
+  created.
 
 As the function app works on a Consumption plan it may take up to 10 minutes for
 the function app to trigger and regenerate the package information. In practice,

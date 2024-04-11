@@ -13,6 +13,7 @@ from pathlib import Path
 import azure.functions as func
 import pydpkg
 from azure.storage.blob import ContainerClient
+from azure.identity import DefaultAzureCredential
 
 app = func.FunctionApp()
 log = logging.getLogger("apt-package-function")
@@ -128,10 +129,21 @@ class RepoManager:
 
     def __init__(self) -> None:
         """Create a RepoManager object."""
-        self.connection_string = os.environ["AzureWebJobsStorage"]
-        self.container_client = ContainerClient.from_connection_string(
-            self.connection_string, CONTAINER_NAME
-        )
+        if "AzureWebJobsStorage" in os.environ:
+            # Use a connection string to access the storage account
+            self.connection_string = os.environ["AzureWebJobsStorage"]
+            self.container_client = ContainerClient.from_connection_string(
+                conn_str=self.connection_string, container_name=CONTAINER_NAME
+            )
+        else:
+            # Use credentials to access the container. Used when shared-key
+            # access is disabled.
+            self.credential = DefaultAzureCredential()
+            self.container_client = ContainerClient.from_container_url(
+                container_url=os.environ["BLOB_CONTAINER_URL"],
+                credential=self.credential,
+            )
+
         self.package_file = self.container_client.get_blob_client("Packages")
         self.package_file_xz = self.container_client.get_blob_client("Packages.xz")
 
@@ -182,29 +194,6 @@ class RepoManager:
         compressed_data = lzma.compress(packages_bytes)
         self.package_file_xz.upload_blob(compressed_data, overwrite=True)
         log.info("Created Packages.xz file")
-
-
-@app.blob_trigger(
-    arg_name="newfile",
-    path=f"{CONTAINER_NAME}/{{name}}.deb",
-    connection="AzureWebJobsStorage",
-)
-def blob_trigger(newfile: func.InputStream):
-    """Process a new blob in the container."""
-    # Have to use %s for the length because .length is optional
-    log.info(
-        "Python blob trigger function processed blob; Name: %s, Blob Size: %s bytes",
-        newfile.name,
-        newfile.length,
-    )
-    if not newfile.name or not newfile.name.endswith(".deb"):
-        log.info("Not a Debian package: %s", newfile.name)
-        return
-
-    rm = RepoManager()
-    rm.check_metadata()
-    rm.create_packages()
-    log.info("Done processing %s", newfile.name)
 
 
 @app.function_name(name="eventGridTrigger")

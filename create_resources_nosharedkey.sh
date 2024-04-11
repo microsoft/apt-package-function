@@ -6,6 +6,8 @@ set -euo pipefail
 
 # This script uses Bicep scripts to create a function app and a storage account,
 # then uses the Azure CLI to deploy the function code to that app.
+# Uses managed identities.
+# Requires Docker to be installed and running.
 
 LOCATION="eastus"
 
@@ -46,6 +48,16 @@ then
   exit 1
 fi
 
+# Pack the application using the core-tools tooling
+# Should generate a file called function_app.zip
+docker run -it \
+  --rm \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v $PWD:/function_app \
+  -w /function_app \
+  mcr.microsoft.com/azure-functions/python:4-python3.11-core-tools \
+  bash -c "func pack --python --build-native-deps"
+
 echo "Ensuring resource group ${RESOURCE_GROUP_NAME} exists"
 az group create --name "${RESOURCE_GROUP_NAME}" --location "${LOCATION}" --output none
 
@@ -56,34 +68,44 @@ az deployment group create \
   --name "${DEPLOYMENT_NAME}" \
   --resource-group "${RESOURCE_GROUP_NAME}" \
   --template-file ./rg.bicep \
-  --parameter use_shared_keys=true \
+  --parameter use_shared_keys=false \
   ${PARAMETERS} \
   --output none
 echo "Resources created"
 
 # There's some output in the deployment that we need.
 APT_SOURCES=$(az deployment group show -n "${DEPLOYMENT_NAME}" -g "${RESOURCE_GROUP_NAME}" --output tsv --query properties.outputs.apt_sources.value)
-FUNCTION_APP_NAME=$(az deployment group show -n "${DEPLOYMENT_NAME}" -g "${RESOURCE_GROUP_NAME}" --output tsv --query properties.outputs.function_app_name.value)
 STORAGE_ACCOUNT=$(az deployment group show -n "${DEPLOYMENT_NAME}" -g "${RESOURCE_GROUP_NAME}" --output tsv --query properties.outputs.storage_account.value)
 PACKAGE_CONTAINER=$(az deployment group show -n "${DEPLOYMENT_NAME}" -g "${RESOURCE_GROUP_NAME}" --output tsv --query properties.outputs.package_container.value)
+PYTHON_CONTAINER=$(az deployment group show -n "${DEPLOYMENT_NAME}" -g "${RESOURCE_GROUP_NAME}" --output tsv --query properties.outputs.python_container.value)
 
-# Zip up the functionapp code
-mkdir -p build/
-rm -f build/function_app.zip
-zip -r build/function_app.zip host.json requirements.txt function_app.py
+# Upload the function app code to the python container
+echo "Uploading function app code to ${PYTHON_CONTAINER}"
+az storage blob upload \
+  --auth-mode login \
+  --account-name "${STORAGE_ACCOUNT}" \
+  --container-name "${PYTHON_CONTAINER}" \
+  --file function_app.zip \
+  --name function_app.zip \
+  --overwrite \
+  --output none
 
-# Deploy the function code
-echo "Deploying function app code to ${FUNCTION_APP_NAME}"
-az functionapp deployment source config-zip \
-    --resource-group "${RESOURCE_GROUP_NAME}" \
-    --name "${FUNCTION_APP_NAME}" \
-    --src build/function_app.zip \
-    --build-remote true \
-    --output none
-echo "Function app code deployed"
+# Create the function app
+echo "Creating function app in resource group ${RESOURCE_GROUP_NAME}"
+az deployment group create \
+  --name "${DEPLOYMENT_NAME}_func" \
+  --resource-group "${RESOURCE_GROUP_NAME}" \
+  --template-file ./rg_funcapp.bicep \
+  --parameter use_shared_keys=false \
+  ${PARAMETERS} \
+  --output none
+echo "Function App created"
+
+# Get the generated function app name
+FUNCTION_APP_NAME=$(az deployment group show -n "${DEPLOYMENT_NAME}_func" -g "${RESOURCE_GROUP_NAME}" --output tsv --query properties.outputs.function_app_name.value)
 
 # Clean up
-rm -f build/function_app.zip
+rm -f function_app.zip
 
 # Wait for the event trigger to exist
 ./waitfortrigger.sh "${FUNCTION_APP_NAME}" "${RESOURCE_GROUP_NAME}"
