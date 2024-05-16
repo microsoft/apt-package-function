@@ -48,6 +48,16 @@ then
   exit 1
 fi
 
+# Poetry is required to create the requirements.txt file
+if ! command -v poetry &> /dev/null
+then
+    echo "poetry could not be found - please install it"
+    exit 1
+fi
+
+# Create the requirements.txt file from the poetry configuration
+poetry export -f requirements.txt -o requirements.txt
+
 # Pack the application using the core-tools tooling
 # Should generate a file called function_app.zip
 docker run -it \
