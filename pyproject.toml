@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "apt-package-function"
+version = "0.1.0"
+description = "Functionality to create a Debian package repository in Azure Blob Storage"
+authors = ["Max Dymond <max.dymond@microsoft.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+azure-functions = "^1.19.0"
+azure-identity = "^1.16.0"
+azure-storage-blob = "^12.20.0"
+pydpkg = "^1.9.3"
+
+[tool.poetry.group.dev.dependencies]
+pylint = "^3.2.0"
+mypy = "^1.10.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

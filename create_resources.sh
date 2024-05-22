@@ -46,6 +46,13 @@ then
   exit 1
 fi
 
+# Poetry is required to create the requirements.txt file
+if ! command -v poetry &> /dev/null
+then
+    echo "poetry could not be found - please install it"
+    exit 1
+fi
+
 echo "Ensuring resource group ${RESOURCE_GROUP_NAME} exists"
 az group create --name "${RESOURCE_GROUP_NAME}" --location "${LOCATION}" --output none
 
@@ -66,6 +73,9 @@ APT_SOURCES=$(az deployment group show -n "${DEPLOYMENT_NAME}" -g "${RESOURCE_GR
 FUNCTION_APP_NAME=$(az deployment group show -n "${DEPLOYMENT_NAME}" -g "${RESOURCE_GROUP_NAME}" --output tsv --query properties.outputs.function_app_name.value)
 STORAGE_ACCOUNT=$(az deployment group show -n "${DEPLOYMENT_NAME}" -g "${RESOURCE_GROUP_NAME}" --output tsv --query properties.outputs.storage_account.value)
 PACKAGE_CONTAINER=$(az deployment group show -n "${DEPLOYMENT_NAME}" -g "${RESOURCE_GROUP_NAME}" --output tsv --query properties.outputs.package_container.value)
+
+# Create the requirements.txt file from the poetry configuration
+poetry export -f requirements.txt -o requirements.txt
 
 # Zip up the functionapp code
 mkdir -p build/

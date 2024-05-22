@@ -37,6 +37,7 @@ resource uami 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
 var common_storage_properties = {
   publicNetworkAccess: 'Enabled'
   allowBlobPublicAccess: false
+  minimumTlsVersion: 'TLS1_2'
 }
 var storage_properties = use_shared_keys ? common_storage_properties : union(common_storage_properties, {
   allowSharedKeyAccess: false
