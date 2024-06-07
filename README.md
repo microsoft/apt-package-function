@@ -6,30 +6,45 @@ an Azure Function App to keep it up to date. For use with
 
 # Getting Started
 
+## Required tools
+
+- `poetry` and `poetry-plugin-export`: required for running the creation commands and exporting dependencies to requirements.txt format.
+  - Poetry installation instructions are available at https://python-poetry.org/docs/#installation
+  - Once poetry is installed, run
+    ```bash
+    poetry self add poetry-plugin-export
+    ```
+    to install `poetry-plugin-export`.
+- Azure CLI
+  - Installation instructions available at https://learn.microsoft.com/en-us/cli/azure/install-azure-cli
+
+- Docker (when not using shared key access from the function app to the storage container)
+  - Installation instructions available at https://docs.docker.com/engine/install/
+
 ## Basic usage
 
 To create a new Debian package repository with an Azure Function App, run
 
 ```bash
-./create_resources.sh <resource_group_name>
+poetry run create-resources <resource_group_name>
 ```
 
 with the name of the desired resource group. The scripting will autogenerate a
 package repository name for you - `debianrepo` followed by a unique string to
 differentiate it across Azure.
 
-If you wish to control the suffix used, you can pass the `-s` parameter:
+If you wish to control the suffix used, you can pass the `--suffix` parameter:
 
 ```bash
-./create_resources.sh -s <suffix> <resource_group_name>
+poetry run create-resources --suffix <suffix> <resource_group_name>
 ```
 which will attempt to create a storage container named `debianrepo<suffix>`.
 
 By default all resources are created in the `eastus` location - this can be
-overridden by passing the `-l` parameter:
+overridden by passing the `--location` parameter:
 
 ```bash
-./create_resources.sh -l uksouth <resource_group_name>
+poetry run create-resources --location uksouth <resource_group_name>
 ```
 
 ## No shared-key access / Managed Identities
@@ -42,7 +57,7 @@ compiled and packed appropriately).
 To create a new Debian package repository which uses Managed Identities, run
 
 ```bash
-./create_resources_nosharedkey.sh [-s <suffix>] [-l <location>] <resource_group_name>
+poetry run create-resources --no-shared-key [--suffix <suffix>] [--location <location>] <resource_group_name>
 ```
 
 This creates an additional blob container (`python`) in the storage account to
@@ -65,9 +80,13 @@ The function app works as follows:
   single `Package` file, which is then uploaded. A `Packages.xz` file is also
   created.
 
-As the function app works on a Consumption plan it may take up to 10 minutes for
-the function app to trigger and regenerate the package information. In practice,
-the eventGridTrigger is triggered very quickly.
+## Speed of repository update
+
+The function app triggers at the speed of an Event Grid trigger running in Consumption
+mode; in the worst case this means triggering from a Cold Start. In practice
+the repository is updated within 1 minute.
+
+# Project
 
 ## Contributing
 

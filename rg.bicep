@@ -136,7 +136,7 @@ module funcapp 'rg_funcapp.bicep' = if (use_shared_keys) {
 
 // Create the apt sources string for using apt-transport-blob
 output apt_sources string = 'deb [trusted=yes] blob://${storageAccount.name}.blob.core.windows.net/${packageContainer.name} /'
-output function_app_name string = use_shared_keys ? funcapp.outputs.function_app_name : ''
+output function_app_name string = appName
 output storage_account string = storageAccount.name
 output package_container string = packageContainer.name
 output python_container string = use_shared_keys ? '' : pythonContainer.name
