@@ -14,7 +14,7 @@ azure-storage-blob = "^12.20.0"
 pydpkg = "^1.9.3"
 
 [tool.poetry.group.dev.dependencies]
-pylint = "^3.2.2"
+pylint = "^3.2.3"
 mypy = "^1.10.0"
 
 [build-system]
