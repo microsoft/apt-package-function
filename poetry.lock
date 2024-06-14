@@ -45,17 +45,17 @@ aio = ["aiohttp (>=3.0)"]
 
 [[package]]
 name = "azure-functions"
-version = "1.19.0"
+version = "1.20.0"
 description = "Azure Functions for Python"
 optional = false
 python-versions = "*"
 files = [
-    {file = "azure-functions-1.19.0.tar.gz", hash = "sha256:f3494913d137af9fd735e2b2497aa54fc308b64f4902aa286c19b328fa3ae278"},
-    {file = "azure_functions-1.19.0-py3-none-any.whl", hash = "sha256:1184cef20a587f4f63c9d4fbe20d6682163192b36bd1e16cc6e8261b2ba3fb61"},
+    {file = "azure-functions-1.20.0.tar.gz", hash = "sha256:437e8889d7a75379159b457589cb74f6f966d3576067ae6649fafcd9058102e1"},
+    {file = "azure_functions-1.20.0-py3-none-any.whl", hash = "sha256:1d4ad15b10768b78046154d1da392e99634b64b4821dd091d5b9fe3600c49573"},
 ]
 
 [package.extras]
-dev = ["coverage", "flake8 (>=4.0.1,<4.1.0)", "flake8-logging-format", "mypy", "pytest", "pytest-cov", "requests (==2.*)"]
+dev = ["azure-functions-durable", "coverage", "flake8 (>=4.0.1,<4.1.0)", "flake8-logging-format", "mypy", "pytest", "pytest-cov", "requests (==2.*)"]
 
 [[package]]
 name = "azure-identity"
@@ -813,4 +813,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "e3a4d4f26c3e42adfdbf32c7bcf1cb824fa7a20b9dd48f438f2a8dc72840c1c2"
+content-hash = "8c885098953ec1946ace69f4e6bf9ffc99d178a4c5bb1f3d29efa534eed4fcbf"
