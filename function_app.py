@@ -12,8 +12,8 @@ from pathlib import Path
 
 import azure.functions as func
 import pydpkg
-from azure.storage.blob import ContainerClient
 from azure.identity import DefaultAzureCredential
+from azure.storage.blob import ContainerClient
 
 app = func.FunctionApp()
 log = logging.getLogger("apt-package-function")
