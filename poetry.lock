@@ -31,13 +31,13 @@ aio = ["aiohttp (>=3.0)"]
 
 [[package]]
 name = "azure-functions"
-version = "1.21.0"
+version = "1.21.1"
 description = "Azure Functions for Python"
 optional = false
 python-versions = "*"
 files = [
-    {file = "azure-functions-1.21.0.tar.gz", hash = "sha256:740344c6a3bb7c0be7df7eef5b46820a83dd60053fd12b6734a3b6fabfab3640"},
-    {file = "azure_functions-1.21.0-py3-none-any.whl", hash = "sha256:c71f34c39ca163c8d3c5956b4f9ab745fcc1ebc5cb709a85b92f74cae62d03f0"},
+    {file = "azure-functions-1.21.1.tar.gz", hash = "sha256:c1b7abdc51515e79d7205f595d0ae2584115bb2c12a0a1707589721017dc7335"},
+    {file = "azure_functions-1.21.1-py3-none-any.whl", hash = "sha256:3755f30f0e1cf54b66ea1cce712c4b3e5707ba5adfcf16e398eae616f1dfd88a"},
 ]
 
 [package.extras]
@@ -924,4 +924,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8.2"
-content-hash = "7e7e5f7ec0e8df71d7704b6279a2a7d5b4ee5a45b4c7d1aba6841b6355e43212"
+content-hash = "a53071360014116b4e9016f56895fd5ded28a593ec71a1264a22d72f0f8a8cf4"
